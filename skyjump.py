@@ -21,12 +21,12 @@ GROUND_Y = GAME_H - 40
 #(file background, nama stage, skor mulai)
 STAGES = [
     ("underground.jpg",   "UNDERGROUND",   0),
-    ("land.jpg",   "LAND",   500),
-    ("sky.jpg",    "SKY",    600),
-    ("space.jpg",  "SPACE",  900),
-    ("heaven.jpg", "HEAVEN", 1200),
+    ("ground.jpg",   "GROUND",   50),
+    ("sky.jpg",    "SKY",    60),
+    ("space.jpg",  "SPACE",  90),
+    ("heaven.jpeg", "HEAVEN", 100),
 ]
-GATE_SCORE = 1500
+GATE_SCORE = 150
 GATE_WORLD = GATE_SCORE * 10 + (GROUND_Y - SCROLL_LINE)
 FADE_STEPS = 60
 BANNER_STEPS = 120
@@ -177,7 +177,7 @@ class Game:
             top -= random.uniform(55 + 25 * level, 85 + 55 * level)
 
             if self.height + GROUND_Y - top >= GATE_WORLD:
-                self.platforms.append(Platform(random.uniform(120, GAME_W - 120), top, 200, "gate"))
+                self.platforms.append(Platform(GAME_W / 2, top, 200, "gate"))
                 self.gate_spawned = True
                 return
 
