@@ -1,10 +1,3 @@
-"""
-Game lompat awan dengan kontrol tangan bersarung tangan biru (setengah layar kanan kamera).
-Tombol: r = restart, q = keluar.
-File gambar (satu folder dengan file ini): player.png, hell.png, land.jpg, sky.jpg,
-space.jpg, heaven.jpg
-"""
-
 import os
 import random
 import time
@@ -12,38 +5,32 @@ import time
 import cv2
 import numpy as np
 
-# ============================================================== KONFIGURASI
+#konfig
 CAM_INDEX = 0
-CAM_W, CAM_H = 640, 480
-LOWER_BLUE = np.array([100, 80, 60])      # rentang HSV sarung tangan biru
+LOWER_BLUE = np.array([100, 80, 60])
 UPPER_BLUE = np.array([125, 255, 255])
-MIN_AREA = 500                            # kontur lebih kecil dari ini dianggap noise
-SMOOTH = 0.3                              # makin kecil makin halus tapi makin delay
-EDGE_MARGIN = 0.15                        # tangan tidak perlu mentok tepi area
+MIN_AREA = 500
+SMOOTH = 0.3
+EDGE_MARGIN = 0.15
 
 GAME_W, GAME_H = 480, 640
-STEP = 1 / 60.0                           # fisika 60 langkah/detik
-GRAVITY = 0.6
-JUMP_V = -15.0
-SPRING_V = -25.0
+GRAVITY, JUMP, SPRING = 0.6, -15.0, -25.0
 SCROLL_LINE = GAME_H * 0.4
 GROUND_Y = GAME_H - 40
 
-# (file background, nama, skor mulai) dari bawah ke atas
+#(file background, nama stage, skor mulai)
 STAGES = [
-    ("hell.png",   "HELL",   0),
-    ("land.jpg",   "LAND",   300),
+    ("underground.jpg",   "UNDERGROUND",   0),
+    ("land.jpg",   "LAND",   500),
     ("sky.jpg",    "SKY",    600),
     ("space.jpg",  "SPACE",  900),
     ("heaven.jpg", "HEAVEN", 1200),
 ]
-GATE_SCORE = 1500                         # skor saat pintu surga muncul
+GATE_SCORE = 1500
 GATE_WORLD = GATE_SCORE * 10 + (GROUND_Y - SCROLL_LINE)
-BANNER_STEPS = 120                        # lama tulisan nama stage (2 detik)
-
-PLAYER_IMG = "player.png"
-PLAYER_H = 60                             # tinggi pemain di layar (lebar ikut rasio)
-DOOR_W, DOOR_H = 60, 90
+FADE_STEPS = 60
+BANNER_STEPS = 120
+PLAYER_H, DOOR_H = 60, 90
 
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,64 +38,49 @@ except NameError:
     BASE_DIR = os.getcwd()
 
 
-def clamp(v, lo, hi):
-    return max(lo, min(hi, v))
+
+def clamp(v, low, high):
+    return max(low, min(high, v))
 
 
-def ramp(v, start, full):
-    return clamp((v - start) / float(full - start), 0.0, 1.0)
-
-
-# ================================================================== GAMBAR
-def load_image(name):
+def load(name, height=None):
     img = cv2.imread(os.path.join(BASE_DIR, name), cv2.IMREAD_UNCHANGED)
     if img is None:
         raise FileNotFoundError("File '%s' tidak ada di folder %s" % (name, BASE_DIR))
+    if height:
+        img = cv2.resize(img, (int(img.shape[1] * height / img.shape[0]), height))
     return img
 
 
 def load_background(name):
-    """Skala + crop tengah supaya pas ukuran layar game tanpa penyet."""
-    img = load_image(name)[:, :, :3]
+    img = load(name)[:, :, :3]
     h, w = img.shape[:2]
-    s = max(GAME_W / float(w), GAME_H / float(h))
-    img = cv2.resize(img, (int(np.ceil(w * s)), int(np.ceil(h * s))))
-    y0, x0 = (img.shape[0] - GAME_H) // 2, (img.shape[1] - GAME_W) // 2
-    return np.ascontiguousarray(img[y0:y0 + GAME_H, x0:x0 + GAME_W])
+    s = max(GAME_W / w, GAME_H / h)
+    img = cv2.resize(img, (int(w * s) + 1, int(h * s) + 1))
+    y, x = (img.shape[0] - GAME_H) // 2, (img.shape[1] - GAME_W) // 2
+    return img[y:y + GAME_H, x:x + GAME_W].copy()
 
 
-def load_player(name, height):
-    img = load_image(name)
-    h, w = img.shape[:2]
-    return cv2.resize(img, (max(1, int(round(w * height / float(h)))), height),
-                      interpolation=cv2.INTER_AREA)
-
-
-def overlay(img, sprite, x, y):
-    """Tempel sprite (BGR/BGRA) dengan pojok kiri-atas di (x, y); aman di tepi layar."""
+def overlay(canvas, sprite, x, y):
     sh, sw = sprite.shape[:2]
     x0, y0 = max(x, 0), max(y, 0)
-    x1, y1 = min(x + sw, img.shape[1]), min(y + sh, img.shape[0])
+    x1, y1 = min(x + sw, canvas.shape[1]), min(y + sh, canvas.shape[0])
     if x0 >= x1 or y0 >= y1:
         return
-    s = sprite[y0 - y:y1 - y, x0 - x:x1 - x]
-    roi = img[y0:y1, x0:x1]
-    if s.shape[2] == 4:
-        a = s[:, :, 3:4].astype(np.float32) / 255.0
-        roi[:] = (s[:, :, :3] * a + roi * (1 - a)).astype(np.uint8)
+    part = sprite[y0 - y:y1 - y, x0 - x:x1 - x]
+    area = canvas[y0:y1, x0:x1]
+    if part.shape[2] == 4:
+        alpha = part[:, :, 3:4] / 255.0
+        area[:] = part[:, :, :3] * alpha + area * (1 - alpha)
     else:
-        roi[:] = s[:, :, :3]
+        area[:] = part[:, :, :3]
 
 
-# ============================================================ DETEKSI TANGAN
+#deteksi tangan
 def detect_hand(frame, kernel):
-    """
-    Cari sarung tangan biru di setengah kanan frame.
-    Return (posisi X 0..1 di area kanan atau None kalau tidak ada, mask).
-    """
     h, w = frame.shape[:2]
     x0 = w // 2
-    cv2.rectangle(frame, (x0, 0), (w - 1, h - 1), (0, 255, 255), 2)   # kotak area aktif
+    cv2.rectangle(frame, (x0, 0), (w - 1, h - 1), (0, 255, 255), 2)
 
     roi = frame[:, x0:]
     hsv = cv2.cvtColor(cv2.GaussianBlur(roi, (7, 7), 0), cv2.COLOR_BGR2HSV)
@@ -121,34 +93,20 @@ def detect_hand(frame, kernel):
     if not contours:
         return None, mask
 
-    c = max(contours, key=cv2.contourArea)
-    m = cv2.moments(c)
+    biggest = max(contours, key=cv2.contourArea)
+    m = cv2.moments(biggest)
     cx, cy = int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"])
-    bx, by, bw, bh = cv2.boundingRect(c)
+    bx, by, bw, bh = cv2.boundingRect(biggest)
     cv2.rectangle(frame, (bx + x0, by), (bx + bw + x0, by + bh), (0, 255, 0), 2)
     cv2.circle(frame, (cx + x0, cy), 8, (0, 0, 255), -1)
 
-    pos = (cx / float(w - x0) - EDGE_MARGIN) / (1 - 2 * EDGE_MARGIN)
+    pos = (cx / (w - x0) - EDGE_MARGIN) / (1 - 2 * EDGE_MARGIN)
     return clamp(pos, 0.0, 1.0), mask
 
 
-# ==================================================================== AWAN
-class Platform:
-    def __init__(self, x, y, w, kind="normal", vx=0.0):
-        self.x, self.y, self.w = x, y, w   # x = pusat, y = permukaan atas awan
-        self.kind = kind                   # normal / moving / breakable / spring / gate
-        self.vx = vx
-
-    def update(self):
-        if self.kind == "moving":
-            self.x += self.vx
-            half = self.w / 2
-            if self.x < half or self.x > GAME_W - half:
-                self.x = clamp(self.x, half, GAME_W - half)
-                self.vx = -self.vx
-
-
-CLOUD_COLORS = {                      # (warna badan, warna outline) BGR
+#awan
+#warna awan per jenis (warna isi, warna tepi) format BGR
+COLORS = {
     "normal":    ((255, 255, 255), (215, 215, 215)),
     "moving":    ((150, 210, 255), (110, 170, 230)),
     "breakable": ((170, 175, 185), (130, 135, 145)),
@@ -157,83 +115,84 @@ CLOUD_COLORS = {                      # (warna badan, warna outline) BGR
 }
 
 
-def draw_door(img, x, yb):
-    hw = DOOR_W // 2
-    cy = yb - DOOR_H + hw
-    gold, pale = (60, 190, 240), (200, 245, 255)
-    cv2.rectangle(img, (x - hw, cy), (x + hw, yb), gold, -1)
-    cv2.ellipse(img, (x, cy), (hw, hw), 0, 180, 360, gold, -1, cv2.LINE_AA)
-    cv2.rectangle(img, (x - hw + 6, cy), (x + hw - 6, yb), pale, -1)
-    cv2.ellipse(img, (x, cy), (hw - 6, hw - 6), 0, 180, 360, pale, -1, cv2.LINE_AA)
-    cv2.line(img, (x, cy - hw + 6), (x, yb), gold, 2, cv2.LINE_AA)
+class Platform:
+
+    def __init__(self, x, y, width, kind="normal", speed=0.0):
+        self.x, self.y, self.width = x, y, width
+        self.kind, self.speed = kind, speed
+
+    def update(self):
+        if self.kind == "moving":
+            self.x += self.speed
+            half = self.width / 2
+            if self.x < half or self.x > GAME_W - half:
+                self.x = clamp(self.x, half, GAME_W - half)
+                self.speed = -self.speed
+
+    def draw(self, canvas):
+        x, y, w = int(self.x), int(self.y), int(self.width)
+        fill, edge = COLORS[self.kind]
+        for color, grow in ((edge, 2), (fill, 0)):
+            cv2.ellipse(canvas, (x, y + 6), (w // 2 + grow, 8 + grow), 0, 0, 360, color, -1, cv2.LINE_AA)
+            cv2.circle(canvas, (x - w // 5, y + 3), 9 + grow, color, -1, cv2.LINE_AA)
+            cv2.circle(canvas, (x + w // 6, y + 2), 11 + grow, color, -1, cv2.LINE_AA)
+
+        if self.kind == "breakable":                # garis retak
+            crack = np.array([(x - 8, y - 4), (x - 2, y + 6), (x + 5, y), (x + 10, y + 8)], np.int32)
+            cv2.polylines(canvas, [crack], False, (80, 90, 100), 2, cv2.LINE_AA)
+        elif self.kind == "spring":                 # per merah
+            coil = np.array([(x - 6, y), (x + 6, y - 3), (x - 6, y - 6), (x + 6, y - 9)], np.int32)
+            cv2.polylines(canvas, [coil], False, (60, 60, 60), 2, cv2.LINE_AA)
+            cv2.rectangle(canvas, (x - 9, y - 13), (x + 9, y - 9), (0, 0, 220), -1)
 
 
-def draw_cloud(img, p):
-    x, y, w = int(p.x), int(p.y), int(p.w)
-    col, edge = CLOUD_COLORS[p.kind]
-    if p.kind == "gate":
-        draw_door(img, x, y + 4)
-    # outline lalu badan awan
-    cv2.ellipse(img, (x, y + 6), (w // 2 + 2, 10), 0, 0, 360, edge, -1, cv2.LINE_AA)
-    cv2.circle(img, (x - w // 5, y + 3), 11, edge, -1, cv2.LINE_AA)
-    cv2.circle(img, (x + w // 6, y + 2), 13, edge, -1, cv2.LINE_AA)
-    cv2.ellipse(img, (x, y + 7), (w // 2, 8), 0, 0, 360, col, -1, cv2.LINE_AA)
-    cv2.circle(img, (x - w // 5, y + 3), 9, col, -1, cv2.LINE_AA)
-    cv2.circle(img, (x + w // 6, y + 2), 11, col, -1, cv2.LINE_AA)
-
-    if p.kind == "breakable":      # garis retak
-        for a, b in (((-8, -4), (-2, 6)), ((-2, 6), (5, 0)), ((5, 0), (10, 8))):
-            cv2.line(img, (x + a[0], y + a[1]), (x + b[0], y + b[1]),
-                     (80, 90, 100), 2, cv2.LINE_AA)
-    elif p.kind == "spring":       # per merah
-        pts = np.array([(x - 6, y), (x + 6, y - 3), (x - 6, y - 6), (x + 6, y - 9)], np.int32)
-        cv2.polylines(img, [pts], False, (60, 60, 60), 2, cv2.LINE_AA)
-        cv2.rectangle(img, (x - 9, y - 13), (x + 9, y - 9), (0, 0, 220), -1)
-
-
-# ===================================================================== GAME
+#game
 class Game:
     def __init__(self):
         self.best = 0
-        self.sprite = load_player(PLAYER_IMG, PLAYER_H)
-        self.pw, self.ph = self.sprite.shape[1], PLAYER_H
+        self.player_img = load("player.png", PLAYER_H)
+        self.door_img = load("door.png", DOOR_H)
         self.backgrounds = [load_background(s[0]) for s in STAGES]
+        self.pw = self.player_img.shape[1]
+        self.dw = self.door_img.shape[1]
         self.reset()
 
     def reset(self):
         self.started = self.over = self.won = self.gate_spawned = False
-        self.height, self.score, self.stage, self.banner = 0.0, 0, 0, 0
-        self.px, self.py, self.vy = GAME_W / 2, GROUND_Y, JUMP_V   # py = posisi kaki
+        self.height = 0.0
+        self.score = 0
+        self.stage, self.prev_stage = 0, 0
+        self.fade = self.banner = 0
+        self.px, self.py, self.vy = GAME_W / 2, GROUND_Y, JUMP
         self.platforms = [Platform(GAME_W / 2, GROUND_Y, 150)]
         self.spawn()
 
     def spawn(self):
-        """Buat awan baru di atas layar. Setelah pintu surga dibuat, tidak ada awan lagi."""
+        #Buat awan baru di atas layar. Setelah awan pintu surga dibuat, tidak ada awan lagi.
         if self.gate_spawned:
             return
         top = min(p.y for p in self.platforms)
         while top > -60:
-            level = clamp(self.score / float(GATE_SCORE), 0.0, 1.0)
-            new_top = top - random.uniform(55 + 25 * level, 85 + 55 * level)
+            level = min(self.score / GATE_SCORE, 1.0)
+            top -= random.uniform(55 + 25 * level, 85 + 55 * level)
 
-            if self.height + GROUND_Y - new_top >= GATE_WORLD:      # waktunya pintu surga
-                self.platforms.append(Platform(random.uniform(120, GAME_W - 120),
-                                               new_top, 200, "gate"))
+            if self.height + GROUND_Y - top >= GATE_WORLD:
+                self.platforms.append(Platform(random.uniform(120, GAME_W - 120), top, 200, "gate"))
                 self.gate_spawned = True
                 return
-            top = new_top
 
-            w = random.randint(int(90 - 30 * level), int(100 - 25 * level))
-            p_spring = 0.07
-            p_break = 0.25 * ramp(self.score, 200, 1000)
-            p_move = 0.35 * ramp(self.score, 300, 1000)
+            width = random.randint(int(90 - 30 * level), int(100 - 25 * level))
+            x = random.uniform(width / 2, GAME_W - width / 2)
+            kind, speed = "normal", 0.0
             r = random.random()
-            kind = ("spring" if r < p_spring else
-                    "breakable" if r < p_spring + p_break else
-                    "moving" if r < p_spring + p_break + p_move else "normal")
-            vx = random.choice([-1, 1]) * (1.2 + 1.8 * level) if kind == "moving" else 0.0
-            self.platforms.append(Platform(random.uniform(w / 2, GAME_W - w / 2),
-                                           top, w, kind, vx))
+            if r < 0.07:
+                kind = "spring"
+            elif r < 0.07 + 0.2 * level:
+                kind = "breakable"
+            elif r < 0.07 + 0.5 * level:
+                kind = "moving"
+                speed = random.choice([-1, 1]) * (1.2 + 1.8 * level)
+            self.platforms.append(Platform(x, top, width, kind, speed))
 
     def step(self, hand_x, found):
         if not self.started:
@@ -242,123 +201,136 @@ class Game:
             self.started, self.banner = True, BANNER_STEPS
         if self.over or self.won:
             return
-        self.banner = max(0, self.banner - 1)
 
+        self.fade = max(0, self.fade - 1)
+        self.banner = max(0, self.banner - 1)
         for p in self.platforms:
             p.update()
 
-        # X pemain mengikuti tangan, Y dengan gravitasi
+        #gerakkan pemain, X ikut tangan, Y kena gravitasi
         self.px = clamp(hand_x * GAME_W, self.pw / 2, GAME_W - self.pw / 2)
-        prev = self.py
+        old_py = self.py
         self.vy += GRAVITY
         self.py += self.vy
 
-        # mendarat di awan (hanya saat jatuh, naik bisa tembus dari bawah)
+        #mendarat di awan (hanya saat jatuh, saat naik bisa tembus dari bawah)
         if self.vy > 0:
             for p in self.platforms:
-                if (abs(self.px - p.x) <= p.w / 2 + self.pw * 0.25
-                        and prev <= p.y + 1 and self.py >= p.y):
+                above_cloud = abs(self.px - p.x) <= p.width / 2 + self.pw * 0.25
+                crossed_top = old_py <= p.y + 1 and self.py >= p.y
+                if above_cloud and crossed_top:
                     self.py = p.y
-                    self.vy = SPRING_V if p.kind == "spring" else JUMP_V
+                    self.vy = SPRING if p.kind == "spring" else JUMP
                     if p.kind == "breakable":
-                        self.platforms.remove(p)       # langsung hilang
+                        self.platforms.remove(p) #awan langsung hilang
                     break
 
-        # menang kalau menyentuh pintu surga
+        #menang kalau badan pemain menyentuh pintu
         for p in self.platforms:
-            if (p.kind == "gate" and abs(self.px - p.x) < (DOOR_W + self.pw * 0.6) / 2
-                    and p.y - DOOR_H < self.py and self.py - self.ph < p.y):
+            if (p.kind == "gate" and abs(self.px - p.x) < (self.dw + self.pw * 0.6) / 2
+                    and self.py > p.y - DOOR_H and self.py - PLAYER_H < p.y):
                 self.won = True
                 return
 
-        # scroll: pemain tidak naik melewati SCROLL_LINE, dunia yang turun
+        #kalau pemain lewat garis, semua awan digeser turun
         if self.py < SCROLL_LINE:
-            dy = SCROLL_LINE - self.py
+            shift = SCROLL_LINE - self.py
             self.py = SCROLL_LINE
             for p in self.platforms:
-                p.y += dy
-            self.height += dy
+                p.y += shift
+            self.height += shift
             self.score = int(self.height / 10)
             self.best = max(self.best, self.score)
 
-        # ganti stage sesuai skor
-        stage = max(i for i, s in enumerate(STAGES) if self.score >= s[2])
-        if stage != self.stage:
-            self.stage, self.banner = stage, BANNER_STEPS
+        #ganti stage sesuai skor
+        new_stage = 0
+        for i, stage in enumerate(STAGES):
+            if self.score >= stage[2]:
+                new_stage = i
+        if new_stage != self.stage:
+            self.prev_stage, self.stage = self.stage, new_stage
+            self.fade, self.banner = FADE_STEPS, BANNER_STEPS
 
+        #buang awan di bawah layar, buat yang baru di atas
         self.platforms = [p for p in self.platforms if p.y < GAME_H + 40]
         self.spawn()
 
-        if self.py - self.ph > GAME_H:                 # jatuh keluar layar
+        if self.py - PLAYER_H > GAME_H: #jatuh keluar layar = kalah
             self.over = True
 
-    # ------------------------------------------------------------- gambar
-    @staticmethod
-    def text(img, s, y, scale=0.8, color=(255, 255, 255), x=None):
-        (tw, _), _ = cv2.getTextSize(s, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)
-        org = ((GAME_W - tw) // 2 if x is None else x, y)
-        cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), 5, cv2.LINE_AA)
-        cv2.putText(img, s, org, cv2.FONT_HERSHEY_SIMPLEX, scale, color, 2, cv2.LINE_AA)
+    def text(self, canvas, s, y, scale=0.8, color=(255, 255, 255), x=None):
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        if x is None:
+            x = (GAME_W - cv2.getTextSize(s, font, scale, 2)[0][0]) // 2
+        cv2.putText(canvas, s, (x, y), font, scale, (0, 0, 0), 5, cv2.LINE_AA)
+        cv2.putText(canvas, s, (x, y), font, scale, color, 2, cv2.LINE_AA)
 
     def draw(self, found):
-        img = self.backgrounds[self.stage].copy()
-        for p in self.platforms:
-            draw_cloud(img, p)
-        overlay(img, self.sprite, int(self.px - self.pw / 2), int(self.py - self.ph))
+        #background, dicampur dengan background lama saat baru ganti stage (fade)
+        canvas = self.backgrounds[self.stage].copy()
+        if self.fade > 0:
+            old = self.fade / FADE_STEPS
+            canvas = cv2.addWeighted(self.backgrounds[self.prev_stage], old, canvas, 1 - old, 0)
 
-        self.text(img, "Skor: %d" % self.score, 28, 0.7, x=10)
-        self.text(img, "Terbaik: %d" % self.best, 28, 0.6, x=GAME_W - 160)
+        for p in self.platforms:
+            if p.kind == "gate":
+                overlay(canvas, self.door_img, int(p.x - self.dw / 2), int(p.y + 4 - DOOR_H))
+            p.draw(canvas)
+        overlay(canvas, self.player_img, int(self.px - self.pw / 2), int(self.py - PLAYER_H))
+
+        self.text(canvas, "Score: %d" % self.score, 28, 0.7, x=10)
+        self.text(canvas, "Best Score: %d" % self.best, 28, 0.6, x=GAME_W - 160)
 
         if not self.started:
-            self.text(img, "Tunjukkan tangan biru", GAME_H // 2 - 10)
-            self.text(img, "untuk mulai", GAME_H // 2 + 25)
+            self.text(canvas, "Tunjukkan objek biru", GAME_H // 2 - 10)
+            self.text(canvas, "untuk mulai", GAME_H // 2 + 25)
         elif not (self.over or self.won):
             if self.banner > 0:
-                self.text(img, "STAGE %d: %s" % (self.stage + 1, STAGES[self.stage][1]),
+                self.text(canvas, "STAGE %d: %s" % (self.stage + 1, STAGES[self.stage][1]),
                           90, 0.9, (60, 220, 255))
             if not found:
-                self.text(img, "Tangan tidak terdeteksi", 60, 0.6, (80, 80, 255))
+                self.text(canvas, "Tangan tidak terdeteksi", 60, 0.6, (80, 80, 255))
 
         if self.over or self.won:
-            img = (img * 0.5).astype(np.uint8)
-            title, col = (("GAME OVER", (80, 80, 255)) if self.over
-                          else ("KAMU MENANG!", (60, 220, 255)))
-            self.text(img, title, GAME_H // 2 - 30, 1.2, col)
-            self.text(img, "Skor: %d" % self.score, GAME_H // 2 + 15, 0.9)
-            self.text(img, "Tekan R untuk main lagi", GAME_H // 2 + 55, 0.7)
-        return img
+            canvas = (canvas * 0.5).astype(np.uint8)
+            if self.over:
+                self.text(canvas, "GAME OVER", GAME_H // 2 - 30, 1.2, (80, 80, 255))
+            else:
+                self.text(canvas, "YOU WIN!", GAME_H // 2 - 30, 1.2, (60, 220, 255))
+            self.text(canvas, "Score: %d" % self.score, GAME_H // 2 + 15, 0.9)
+            self.text(canvas, "Press R to Play Again", GAME_H // 2 + 55, 0.7)
+        return canvas
 
 
-# ===================================================================== MAIN
+#main
 def main():
     cap = cv2.VideoCapture(CAM_INDEX)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
     if not cap.isOpened():
         print("Kamera tidak bisa dibuka. Coba ubah CAM_INDEX.")
         return
 
     game = Game()
     kernel = np.ones((5, 5), np.uint8)
-    hand_x, acc, prev_t = 0.5, 0.0, time.perf_counter()
+    hand_x = 0.5
+    timer, last = 0.0, time.perf_counter()
 
     while True:
         ok, frame = cap.read()
         if not ok:
             break
-        frame = cv2.flip(cv2.resize(frame, (CAM_W, CAM_H)), 1)   # mirror
+        frame = cv2.flip(cv2.resize(frame, (640, 480)), 1)
 
-        raw, mask = detect_hand(frame, kernel)
-        found = raw is not None
+        raw_x, mask = detect_hand(frame, kernel)
+        found = raw_x is not None
         if found:
-            hand_x += SMOOTH * (raw - hand_x)
+            hand_x += SMOOTH * (raw_x - hand_x)
 
         now = time.perf_counter()
-        acc += min(now - prev_t, 0.1)
-        prev_t = now
-        while acc >= STEP:
+        timer += min(now - last, 0.1)
+        last = now
+        while timer >= 1 / 60:
             game.step(hand_x, found)
-            acc -= STEP
+            timer -= 1 / 60
 
         cv2.imshow("Game", game.draw(found))
         cv2.imshow("Kamera", frame)
