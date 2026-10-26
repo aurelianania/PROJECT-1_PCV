@@ -21,12 +21,12 @@ GROUND_Y = GAME_H - 40
 #(file background, nama stage, skor mulai)
 STAGES = [
     ("underground.jpg",   "UNDERGROUND",   0),
-    ("ground.jpg",   "GROUND",   50),
-    ("sky.jpg",    "SKY",    60),
-    ("space.jpg",  "SPACE",  90),
-    ("heaven.jpeg", "HEAVEN", 100),
+    ("ground.jpg",   "GROUND",   300),
+    ("sky.jpg",    "SKY",    600),
+    ("space.jpg",  "SPACE",  900),
+    ("heaven.jpeg", "HEAVEN", 1200),
 ]
-GATE_SCORE = 150
+GATE_SCORE = 1500
 GATE_WORLD = GATE_SCORE * 10 + (GROUND_Y - SCROLL_LINE)
 FADE_STEPS = 60
 BANNER_STEPS = 120
