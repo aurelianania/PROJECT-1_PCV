@@ -8,7 +8,7 @@ Game ala Doodle Jump / Pou Sky Jump yang dikontrol **tanpa keyboard dan mouse**.
 
 | Game | Kamera + Mask |
 |---|---|
-| ![Screenshot game](PROJECT-1_PCV/stage-1.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
+| ![Screenshot game](aurelianania/PROJECT-1_PCV/stage-1.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
 | ![Screenshot game](docs/screenshot-game.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
 | ![Screenshot game](docs/screenshot-game.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
 | ![Screenshot game](docs/screenshot-game.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
@@ -74,19 +74,6 @@ project/
 ```
 
 Semua gambar harus berada di folder yang **sama** dengan `game_awan.py`.
-
-## Instalasi dan Menjalankan
-
-Kebutuhan: Python 3, webcam, dan sarung tangan (atau benda) berwarna biru.
-
-```bash
-pip install opencv-python numpy
-python game_awan.py
-```
-
-Atau buka `game_awan.py` di Spyder lalu klik Run.
-
-Saat dijalankan akan muncul 3 jendela: **Game**, **Kamera** (kotak area kontrol, kotak hijau, dan titik merah di tangan), dan **Mask Biru** (hasil segmentasi).
 
 ## Pengaturan
 
