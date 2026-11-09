@@ -4,7 +4,7 @@ Game ala Doodle Jump / Pou Sky Jump yang dikontrol **tanpa keyboard dan mouse**.
 
 ## Demo
 
-**Video demo:** [https://drive.google.com/file/d/1SuDDfN5srzoD21Tnuq42xdAo_Nn_mtlJ/view?usp=sharing ]
+**Video demo:** https://drive.google.com/file/d/1SuDDfN5srzoD21Tnuq42xdAo_Nn_mtlJ/view?usp=sharing
 
 | Game |
 |---|
@@ -68,7 +68,7 @@ Hasilnya dipakai sebagai posisi X karakter di dalam game.
 
 ```
 PROJECT-1_PCV/
-├── skyjump.py          # kode utama
+├── skyjump.py            # kode utama
 ├── player.png            # gambar karakter (PNG transparan)
 ├── door.png              # gambar pintu surga (PNG transparan)
 ├── underground.jpg       # background stage 1
