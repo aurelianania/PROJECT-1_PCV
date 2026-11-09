@@ -80,11 +80,11 @@ project/
 └── README.md
 ```
 
-Semua gambar harus berada di folder yang **sama** dengan `game_awan.py`.
+Semua gambar harus berada di folder yang **sama** dengan `skyjump.py`.
 
 ## Pengaturan
 
-Semua pengaturan ada di bagian atas `game_awan.py`:
+Semua pengaturan ada di bagian atas `skyjump.py`:
 
 | Pengaturan | Fungsi |
 |---|---|
