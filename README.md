@@ -8,10 +8,11 @@ Game ala Doodle Jump / Pou Sky Jump yang dikontrol **tanpa keyboard dan mouse**.
 
 | Game | Kamera + Mask |
 |---|---|
-| ![Screenshot game](docs/stage-1.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
-| ![Screenshot game](docs/screenshot-game.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
-| ![Screenshot game](docs/screenshot-game.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
-| ![Screenshot game](docs/screenshot-game.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
+| ![Screenshot game](docs/stage1.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
+| ![Screenshot game](docs/stage2.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
+| ![Screenshot game](docs/stage3.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
+| ![Screenshot game](docs/stage4.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
+| ![Screenshot game](docs/stage5.png) | ![Screenshot kamera](docs/screenshot-kamera.png) |
 
 ## Fitur
 
