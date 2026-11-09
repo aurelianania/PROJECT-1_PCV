@@ -15,9 +15,9 @@ Game ala Doodle Jump / Pou Sky Jump yang dikontrol **tanpa keyboard dan mouse**.
 | ![Screenshot game](docs/stage5.png) |
 | ![Screenshot game](docs/win.png) |
 
-| Deteksi Tangan |
+| Deteksi Kamera & Mask |
 |---|
-| ![Screenshot deteksi tangan](docs/ss.png)] |
+| ![Screenshot deteksi tangan](docs/.png)] |
 
 ## Fitur
 
