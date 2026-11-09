@@ -67,7 +67,7 @@ Hasilnya dipakai sebagai posisi X karakter di dalam game.
 ## Struktur Folder
 
 ```
-project/
+PROJECT-1_PCV/
 ├── skyjump.py          # kode utama
 ├── player.png            # gambar karakter (PNG transparan)
 ├── door.png              # gambar pintu surga (PNG transparan)
