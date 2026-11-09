@@ -6,8 +6,8 @@ Game ala Doodle Jump / Pou Sky Jump yang dikontrol **tanpa keyboard dan mouse**.
 
 **Video demo:** [https://drive.google.com/file/d/1SuDDfN5srzoD21Tnuq42xdAo_Nn_mtlJ/view?usp=sharing ]
 
-| Game | Kamera + Mask |
-|---|---|
+| Game |
+|---|
 | ![Screenshot game](docs/stage1.png) |
 | ![Screenshot game](docs/stage2.png) |
 | ![Screenshot game](docs/stage3.png) |
